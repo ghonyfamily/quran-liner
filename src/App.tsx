@@ -20,7 +20,8 @@ import {
   UserPlus,
   Search,
   PenLine,
-  Highlighter
+  Highlighter,
+  Bookmark
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
@@ -91,6 +92,39 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   const [importText, setImportText] = useState('');
   const [strokeColor, setStrokeColor] = useState(COLORS[0].value);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > window.innerHeight && window.innerWidth >= 768);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+  const [markedPages, setMarkedPages] = useState<number[]>([]);
+
+  // Multi-user state
+  const [profiles, setProfiles] = useState<{ id: string, name: string }[]>(() => {
+    const saved = localStorage.getItem('quran_profiles');
+    return saved ? JSON.parse(saved) : [{ id: 'default', name: 'User Utama' }];
+  });
+  const [activeProfileId, setActiveProfileId] = useState(() => {
+    return localStorage.getItem('quran_active_profile') || 'default';
+  });
+  const [showProfiles, setShowProfiles] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  // Scan for marked pages
+  useEffect(() => {
+    const scanMarkedPages = () => {
+      const marked: number[] = [];
+      const prefix = `user_${activeProfileId}_strokes_p`;
+      for (let i = 1; i <= 604; i++) {
+        const data = localStorage.getItem(`${prefix}${i}`);
+        if (data && data !== '[]') {
+          marked.push(i);
+        }
+      }
+      setMarkedPages(marked.sort((a, b) => a - b));
+    };
+
+    scanMarkedPages();
+  }, [activeProfileId, strokes]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isIdle, setIsIdle] = useState(false);
@@ -113,19 +147,6 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
     handleResize(); // Trigger on mount
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Multi-user state
-  const [profiles, setProfiles] = useState<{ id: string, name: string }[]>(() => {
-    const saved = localStorage.getItem('quran_profiles');
-    return saved ? JSON.parse(saved) : [{ id: 'default', name: 'User Utama' }];
-  });
-  const [activeProfileId, setActiveProfileId] = useState(() => {
-    return localStorage.getItem('quran_active_profile') || 'default';
-  });
-  const [showProfiles, setShowProfiles] = useState(false);
-  const [newUserName, setNewUserName] = useState('');
-  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
 
   const [pageNumber, setPageNumber] = useState(() => {
     const activeId = localStorage.getItem('quran_active_profile') || 'default';
@@ -703,12 +724,45 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
+
+                <div className="w-[1px] h-4 bg-gray-200 my-auto mx-1" />
+
+                <button 
+                  onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+                  className={`p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all ${isRightSidebarOpen ? 'text-orange-600 bg-white shadow-sm' : 'text-gray-500'}`}
+                  title="Daftar Penanda"
+                >
+                  <Bookmark className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </motion.header>
       </AnimatePresence>
 
       <div className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Overlays */}
+        <AnimatePresence>
+          {isSidebarOpen && window.innerWidth < 1024 && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-40 transition-all duration-300" 
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+          {isRightSidebarOpen && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-40 transition-all duration-300" 
+              onClick={() => setIsRightSidebarOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Sidebar Left */}
         <AnimatePresence mode="wait">
           {isSidebarOpen && (
             <motion.aside 
@@ -866,15 +920,74 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
         )}
       </AnimatePresence>
   
-        <AnimatePresence>
-          {isSidebarOpen && window.innerWidth < 1024 && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-40 transition-all duration-300" 
-              onClick={() => setIsSidebarOpen(false)}
-            />
+        <AnimatePresence mode="wait">
+          {isRightSidebarOpen && (
+            <motion.aside
+              initial={{ x: 320 }}
+              animate={{ x: 0 }}
+              exit={{ x: 320 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed lg:relative inset-y-0 right-0 w-80 max-w-[85vw] border-l border-gray-200 bg-white shadow-2xl lg:shadow-none z-50 overflow-y-auto flex flex-col"
+            >
+              <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bookmark className="w-4 h-4 text-orange-600" />
+                  <h2 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Daftar Penanda</h2>
+                  <span className="bg-orange-100 text-orange-600 text-[9px] px-1.5 py-0.5 rounded-full font-bold">{markedPages.length}</span>
+                </div>
+                <button onClick={() => setIsRightSidebarOpen(false)} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 p-4 custom-scrollbar overflow-y-auto space-y-2">
+                {markedPages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                    <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center">
+                      <Bookmark className="w-6 h-6 text-gray-200" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-400">Belum ada penanda</p>
+                      <p className="text-[10px] text-gray-400">Mulai tandai baris pada Al-Quran</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {markedPages.map((p) => {
+                      const sName = [...SURAHS].reverse().find(s => s.page <= p)?.name || "Al-Fatihah";
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => {
+                            setPageNumber(p);
+                            setOffset({ x: 0, y: 0 });
+                            if (window.innerWidth < 1024) setIsRightSidebarOpen(false);
+                          }}
+                          className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left ${pageNumber === p ? 'bg-orange-50 border-orange-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-300 shadow-sm'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${pageNumber === p ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                              {p}
+                            </div>
+                            <div>
+                              <p className="text-xs font-black text-gray-900">{sName}</p>
+                              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Halaman {p}</p>
+                            </div>
+                          </div>
+                          <ChevronRight className={`w-4 h-4 ${pageNumber === p ? 'text-orange-300' : 'text-gray-300'}`} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                <p className="text-[9px] text-gray-400 font-medium text-center leading-relaxed italic">
+                  Menampilkan semua halaman yang memiliki garis bawah atau stabilo.
+                </p>
+              </div>
+            </motion.aside>
           )}
         </AnimatePresence>
   
