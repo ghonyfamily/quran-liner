@@ -132,6 +132,8 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
     const saved = localStorage.getItem(`user_${activeId}_last_page`);
     return saved ? parseInt(saved) : 1;
   });
+  const [isEditingPage, setIsEditingPage] = useState(false);
+  const [tempPageValue, setTempPageValue] = useState('');
   const [image, setImage] = useState<string | null>(null);
 
   const initialLines = isMapperMode 
@@ -653,9 +655,47 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <div className="px-2 text-xs font-black text-gray-900 border-x border-gray-200 min-w-[3rem] text-center">
-                  {pageNumber}
-                </div>
+                
+                {isEditingPage ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    inputMode="numeric"
+                    value={tempPageValue}
+                    onChange={(e) => setTempPageValue(e.target.value.replace(/\D/g, ''))}
+                    onBlur={() => {
+                      const val = parseInt(tempPageValue);
+                      if (!isNaN(val) && val >= 1 && val <= 604) {
+                        setPageNumber(val);
+                      }
+                      setIsEditingPage(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseInt(tempPageValue);
+                        if (!isNaN(val) && val >= 1 && val <= 604) {
+                          setPageNumber(val);
+                        }
+                        setIsEditingPage(false);
+                      }
+                      if (e.key === 'Escape') {
+                        setIsEditingPage(false);
+                      }
+                    }}
+                    className="w-12 text-center text-xs font-black text-orange-600 bg-white border-x border-gray-200 outline-none"
+                  />
+                ) : (
+                  <button 
+                    onClick={() => {
+                      setTempPageValue(pageNumber.toString());
+                      setIsEditingPage(true);
+                    }}
+                    className="px-2 text-xs font-black text-gray-900 border-x border-gray-200 min-w-[3rem] text-center hover:text-orange-600 transition-colors"
+                  >
+                    {pageNumber}
+                  </button>
+                )}
+
                 <button 
                   onClick={() => setPageNumber(prev => Math.min(604, prev + 1))}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
