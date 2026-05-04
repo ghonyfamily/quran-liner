@@ -20,8 +20,7 @@ import {
   UserPlus,
   Search,
   PenLine,
-  Highlighter,
-  Share
+  Highlighter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
@@ -337,19 +336,17 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   // Handle Page Change
   useEffect(() => {
     const formattedPage = String(pageNumber).padStart(3, '0');
-    const rawUrl = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${formattedPage}.png`;
-    const url = `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
+    const url = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${formattedPage}.png`;
     setImage(url);
 
-    // Pre-load neighboring pages (2 before, 2 after) using the proxy
+    // Pre-load neighboring pages (2 before, 2 after)
     const preloadRange = [-2, -1, 1, 2];
     preloadRange.forEach(offset => {
       const targetPage = pageNumber + offset;
       if (targetPage >= 1 && targetPage <= 604) {
         const preformattedPage = String(targetPage).padStart(3, '0');
-        const targetRawUrl = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${preformattedPage}.png`;
         const img = new Image();
-        img.src = `/api/proxy-image?url=${encodeURIComponent(targetRawUrl)}`;
+        img.src = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${preformattedPage}.png`;
       }
     });
   }, [pageNumber]);
@@ -603,40 +600,6 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  const handleShare = async () => {
-    if (!containerRef.current) return;
-    try {
-      const dataUrl = await toJpeg(containerRef.current, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        quality: 0.95,
-        pixelRatio: 2, // High resolution
-      });
-      
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      
-      if (!blob) return;
-      
-      const file = new File([blob], `quran-liner-p${pageNumber}.jpg`, { type: 'image/jpeg' });
-      
-      if (navigator.share) {
-        await navigator.share({
-          files: [file],
-          title: 'Quran Liner',
-          text: `Mushaf Al-Quran - Halaman ${pageNumber}`,
-        });
-      } else {
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `quran-liner-p${pageNumber}.jpg`;
-        link.click();
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
-  };
-
   const currentSurah = [...SURAHS].reverse().find(s => s.page <= pageNumber)?.name || "Al-Fatihah";
 
   return (
@@ -823,19 +786,6 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                         <p className="text-[9px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Ganti User</p>
                       </div>
                       <UserPlus className="w-4 h-4 text-gray-300 group-hover:text-gray-600" />
-                    </button>
-
-                    <button 
-                      onClick={handleShare}
-                      className="w-full flex items-center gap-3 p-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition-all group shadow-md shadow-orange-500/20 active:scale-95"
-                    >
-                      <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                        <Share className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black leading-none">Bagikan Halaman</p>
-                        <p className="text-[9px] text-orange-200 mt-1 uppercase font-bold tracking-tighter italic">Export PNG</p>
-                      </div>
                     </button>
                   </div>
 
