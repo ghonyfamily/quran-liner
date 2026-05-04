@@ -337,17 +337,19 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   // Handle Page Change
   useEffect(() => {
     const formattedPage = String(pageNumber).padStart(3, '0');
-    const url = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${formattedPage}.png`;
+    const rawUrl = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${formattedPage}.png`;
+    const url = `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
     setImage(url);
 
-    // Pre-load neighboring pages (2 before, 2 after)
+    // Pre-load neighboring pages (2 before, 2 after) using the proxy
     const preloadRange = [-2, -1, 1, 2];
     preloadRange.forEach(offset => {
       const targetPage = pageNumber + offset;
       if (targetPage >= 1 && targetPage <= 604) {
         const preformattedPage = String(targetPage).padStart(3, '0');
+        const targetRawUrl = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${preformattedPage}.png`;
         const img = new Image();
-        img.src = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${preformattedPage}.png`;
+        img.src = `/api/proxy-image?url=${encodeURIComponent(targetRawUrl)}`;
       }
     });
   }, [pageNumber]);
@@ -783,7 +785,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                       </div>
                     </div>
 
-                    <div className="space-y-1 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
+                    <div className="space-y-1 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
                       {SURAHS.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((s) => (
                         <button 
                           key={s.id}
@@ -932,7 +934,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
       </AnimatePresence>
 
         <main 
-          className="flex-1 bg-[#f0f2f5] relative overflow-hidden p-4 lg:p-12 custom-scrollbar flex justify-center items-start shadow-inner touch-none"
+          className="flex-1 bg-[#f0f2f5] relative overflow-hidden p-4 lg:p-4 custom-scrollbar flex justify-center items-start shadow-inner touch-none"
           onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
           onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
           onMouseUp={(e) => handleEnd(e.clientX, e.clientY)}
