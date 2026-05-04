@@ -652,7 +652,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                 className="flex items-center gap-2 lg:gap-3 hover:opacity-80 transition-all active:scale-95"
               >
                 <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 shadow-sm">
-                  <img src="/logo-q-64.png" alt="Logo" className="w-full h-full object-cover" />
+                  <img src="https://src.puter.site/quran-liner/logo-q-64.png" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col text-left">
                   <h1 className="text-sm font-black tracking-tight uppercase text-gray-900 leading-none">Quran Liner</h1>
@@ -886,7 +886,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
             >
               <div className="p-8 bg-orange-600 text-white text-center">
                 <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-4">
-                  <img src="/logo-q-64.png" alt="Logo" className="w-full h-full object-cover" />
+                  <img src="https://src.puter.site/quran-liner/logo-q-64.png" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <h2 className="text-2xl font-black mb-2">Selamat Datang di Quran Liner</h2>
                 <p className="text-orange-100 text-sm leading-relaxed">
