@@ -104,6 +104,8 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
       const isTabletOrDesktop = window.innerWidth >= 768;
       if (isLandscape && isTabletOrDesktop) {
         setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
       }
     };
 
@@ -296,30 +298,46 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
     setEditingName('');
   };
 
-  const resetView = () => {
+  const resetView = (withFullscreen?: boolean) => {
     setOffset({ x: 0, y: 0 });
     const isMobile = window.innerWidth < 1024;
-    const isLandscape = window.innerWidth > window.innerHeight;
-    const headerHeight = window.innerWidth >= 1024 ? 80 : 64;
-    const availableHeight = window.innerHeight - headerHeight - 40;
-    const availableWidth = window.innerWidth - (isMobile ? 32 : 80);
+    const headerHeight = isMobile ? 64 : 80;
+    const sidebarWidth = (isSidebarOpen && !isMobile) ? 320 : 0;
     
+    const availableHeight = window.innerHeight - headerHeight - 40;
+    const availableWidth = window.innerWidth - sidebarWidth - 40;
+    
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const heightZoom = availableHeight / NATURAL_HEIGHT;
+    const widthZoom = availableWidth / NATURAL_WIDTH;
+    
+    // On mobile landscape, only fit to width so the user can scroll vertically
     let fitZoom;
     if (isMobile && isLandscape) {
-      fitZoom = availableWidth / NATURAL_WIDTH;
+      fitZoom = widthZoom;
     } else {
-      fitZoom = availableHeight / NATURAL_HEIGHT;
+      // Otherwise use the smaller zoom to ensure it fits both ways
+      fitZoom = Math.min(heightZoom, widthZoom);
     }
+    
     setZoom(Math.min(1.5, fitZoom));
+
+    // Request fullscreen mode if explicitly requested
+    if (withFullscreen === true && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    }
   };
 
   // Initial Zoom Fit & Orientation Change Reset
   useEffect(() => {
+    const handleResize = () => resetView();
     resetView();
-    const timeout = setTimeout(resetView, 100);
-    window.addEventListener('resize', resetView);
+    const timeout = setTimeout(handleResize, 100);
+    window.addEventListener('resize', handleResize);
     return () => {
-      window.removeEventListener('resize', resetView);
+      window.removeEventListener('resize', handleResize);
       clearTimeout(timeout);
     };
   }, []);
@@ -748,7 +766,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                       </div>
                     </div>
 
-                    <div className="space-y-1 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                    <div className="space-y-1 max-h-[45vh] overflow-y-auto custom-scrollbar pr-1">
                       {SURAHS.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((s) => (
                         <button 
                           key={s.id}
@@ -1046,7 +1064,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                 <div className="w-[1px] h-4 bg-gray-200 my-auto mx-1" />
 
                 <button 
-                  onClick={resetView}
+                  onClick={() => resetView(true)}
                   className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-orange-600 transition-colors"
                   title="Reset View"
                 >
