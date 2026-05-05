@@ -68,11 +68,13 @@ interface LineCoord {
 }
 
 interface UnderlineStroke {
+  id: string;
   lineId: number;
   startX: number;
   endX: number;
   color: string;
   mode: 'underline' | 'highlight';
+  note?: string;
 }
 
 const COLORS = [
@@ -95,6 +97,8 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   const [showMarkedPagesModal, setShowMarkedPagesModal] = useState(false);
   const [markedPages, setMarkedPages] = useState<number[]>([]);
   const [fingerCount, setFingerCount] = useState(0);
+  const [activeAnnotation, setActiveAnnotation] = useState<{ strokeId: string, text: string, x: number, y: number } | null>(null);
+  const [hoveredNote, setHoveredNote] = useState<{ text: string, x: number, y: number } | null>(null);
 
   // Multi-user state
   const [profiles, setProfiles] = useState<{ id: string, name: string }[]>(() => {
@@ -428,6 +432,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
 
 
   const handleStart = (clientX: number, clientY: number) => {
+    if (activeAnnotation) return;
     touchStartPos.current = { x: clientX, y: clientY };
     lastMousePos.current = { x: clientX, y: clientY };
     interactionStartTime.current = Date.now();
@@ -446,7 +451,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   };
 
   const handleMove = (clientX: number, clientY: number) => {
-    if (!isDragging.current || viewMode !== 'preview') return;
+    if (activeAnnotation || !isDragging.current || viewMode !== 'preview') return;
 
     if (interactionMode.current === 'pending' && touchStartPos.current) {
       const dx = clientX - touchStartPos.current.x;
@@ -465,6 +470,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
               if (validLines.length > 0) {
                 const targetLine = [...validLines].sort((a, b) => a.y - b.y)[0];
                 const newStroke: UnderlineStroke = { 
+                  id: 'pending-' + Date.now(),
                   lineId: targetLine.id, 
                   startX: coords.x, 
                   endX: coords.x,
@@ -511,6 +517,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   };
 
   const handleEnd = (clientX?: number, clientY?: number) => {
+    if (activeAnnotation) return;
     if (isDragging.current) {
       if (interactionMode.current === 'pending' && tool === 'delete' && clientX !== undefined && clientY !== undefined) {
         // Tap to delete
@@ -531,8 +538,29 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
           currentStrokes.pop();
           setStrokes(currentStrokes);
           saveStrokes(currentStrokes);
-        } else {
+        } else if (last) {
+          const strokeId = Date.now().toString();
+          last.id = strokeId;
+          setStrokes(currentStrokes);
           saveStrokes(currentStrokes);
+          
+          // Trigger annotation input
+          const lx = Math.min(last.startX, last.endX) + Math.abs(last.endX - last.startX) / 2;
+          const lineRef = lines.find(l => l.id === last.lineId);
+          const ly = lineRef ? lineRef.y : 0;
+          const hlConfig = PAGE_CONFIGS[pageNumber]?.highlight || DEFAULT_HL;
+          
+          // Adjust position based on mode
+          const finalY = last.mode === 'highlight' 
+            ? ly + hlConfig.offsetY + hlConfig.height 
+            : ly + 1;
+          
+          setActiveAnnotation({ 
+            strokeId, 
+            text: '',
+            x: lx,
+            y: finalY
+          });
         }
       } else if (interactionMode.current === 'erasing' || (interactionMode.current === 'pending' && tool === 'delete')) {
         saveStrokes(strokes);
@@ -1029,31 +1057,74 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                   const w = Math.max(1, Math.abs(stroke.endX - stroke.startX));
 
                   if (isHighlight) {
-                    const hlConfig = PAGE_CONFIGS[pageNumber]?.highlight || DEFAULT_HL;
-                    return (
+                    const hlConfig = PAGE_CONFIGS[pageNumber]?.highlight || DEFAULT_HL;                    return (
                       <rect 
-                        key={`stroke-${idx}`} 
+                        key={stroke.id || `stroke-${idx}`} 
                         x={x} 
                         y={line.y + hlConfig.offsetY} 
                         width={w} 
                         height={hlConfig.height} 
                         fill={color} 
-                        fillOpacity="0.4" 
+                        fillOpacity="0.4"
+                        className="pointer-events-auto cursor-pointer"
+                        onMouseEnter={() => stroke.note && setHoveredNote({ text: stroke.note, x: x + w/2, y: line.y + hlConfig.offsetY + hlConfig.height })}
+                        onMouseLeave={() => setHoveredNote(null)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          const coords = getNaturalCoords(e.clientX, e.clientY);
+                          const lx = coords ? coords.x : x + w/2;
+                          const ly = line.y + hlConfig.offsetY + hlConfig.height;
+                          setActiveAnnotation({ 
+                            strokeId: stroke.id, 
+                            text: stroke.note || '',
+                            x: lx,
+                            y: ly
+                          });
+                        }}
                       />
                     );
                   }
-
+                  const startX = Math.min(stroke.startX, stroke.endX);
+                  const endX = Math.max(stroke.startX, stroke.endX);
+                  const lineW = endX - startX;
+                  const hlConfig = PAGE_CONFIGS[pageNumber]?.highlight || DEFAULT_HL;
+                  
                   return (
-                    <line 
-                      key={`stroke-${idx}`} 
-                      x1={stroke.startX} 
-                      y1={line.y + 1} 
-                      x2={stroke.endX} 
-                      y2={line.y + 1} 
-                      stroke={color} 
-                      strokeWidth="5" 
-                      strokeLinecap="round" 
-                    />
+                    <g key={stroke.id || `stroke-${idx}`}>
+                      {/* Transparent trigger area matching highlight box */}
+                      <rect
+                        x={startX}
+                        y={line.y + hlConfig.offsetY}
+                        width={lineW}
+                        height={hlConfig.height}
+                        fill="transparent"
+                        className="pointer-events-auto cursor-pointer"
+                        onMouseEnter={() => stroke.note && setHoveredNote({ text: stroke.note, x: (stroke.startX + stroke.endX)/2, y: line.y + hlConfig.offsetY + hlConfig.height })}
+                        onMouseLeave={() => setHoveredNote(null)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          const coords = getNaturalCoords(e.clientX, e.clientY);
+                          const lx = coords ? coords.x : (stroke.startX + stroke.endX)/2;
+                          const ly = line.y + hlConfig.offsetY + hlConfig.height;
+                          setActiveAnnotation({ 
+                            strokeId: stroke.id, 
+                            text: stroke.note || '',
+                            x: lx,
+                            y: ly
+                          });
+                        }}
+                      />
+                      <line 
+                        x1={stroke.startX} 
+                        y1={line.y + 1} 
+                        x2={stroke.endX} 
+                        y2={line.y + 1} 
+                        stroke={color} 
+                        strokeWidth="5" 
+                        strokeLinecap="round" 
+                        className="pointer-events-none"
+                      />
+                    </g>
                   );
                 })}
               </svg>
@@ -1082,6 +1153,90 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                   TAP BARIS {lines[activeLineIndex].id}
                 </div>
               )}
+
+              {/* Annotation Input */}
+              <AnimatePresence>
+                {activeAnnotation && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20, x: "-50%" }}
+                    animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20, x: "-50%" }}
+                    style={window.innerWidth >= 1024 ? { 
+                      position: 'absolute',
+                      left: activeAnnotation.x * zoom,
+                      top: activeAnnotation.y * zoom + 5,
+                    } : {}}
+                    className="fixed lg:absolute bottom-6 lg:bottom-auto left-1/2 lg:left-auto lg:translate-x-0 z-60 flex items-center gap-2 bg-white shadow-2xl rounded-2xl p-2.5 lg:p-1.5 border border-orange-100 min-w-[280px] sm:min-w-[320px] lg:min-w-[240px]"
+                  >
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Komentar..."
+                      value={activeAnnotation.text}
+                      onBlur={() => {
+                        const newStrokes = strokes.map(s => s.id === activeAnnotation.strokeId ? { ...s, note: activeAnnotation.text } : s);
+                        setStrokes(newStrokes);
+                        saveStrokes(newStrokes);
+                        setActiveAnnotation(null);
+                      }}
+                      onChange={(e) => setActiveAnnotation(prev => prev ? { ...prev, text: e.target.value } : null)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const newStrokes = strokes.map(s => s.id === activeAnnotation.strokeId ? { ...s, note: activeAnnotation.text } : s);
+                          setStrokes(newStrokes);
+                          saveStrokes(newStrokes);
+                          setActiveAnnotation(null);
+                        }
+                        if (e.key === 'Escape') setActiveAnnotation(null);
+                      }}
+                      className="flex-1 bg-orange-50/40 border border-transparent focus:border-orange-200 rounded-xl px-3.5 py-1.5 text-sm lg:text-[11px] outline-none focus:ring-4 focus:ring-orange-500/5 placeholder:text-gray-400"
+                    />
+                    <div className="flex gap-1">
+                      <button 
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setActiveAnnotation(null)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
+                      >
+                        <X className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
+                      </button>
+                      <button 
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          const newStrokes = strokes.map(s => s.id === activeAnnotation.strokeId ? { ...s, note: activeAnnotation.text } : s);
+                          setStrokes(newStrokes);
+                          saveStrokes(newStrokes);
+                          setActiveAnnotation(null);
+                        }}
+                        className="p-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-lg shadow-orange-500/20 transition-all active:scale-95"
+                      >
+                        <ChevronRight className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Hovered Annotation Note */}
+              <AnimatePresence>
+                {hoveredNote && !activeAnnotation && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5, x: "-50%" }}
+                    animate={{ opacity: 1, y: 0, x: "-50%" }}
+                    exit={{ opacity: 0, y: 5, x: "-50%" }}
+                    style={{ 
+                      position: 'absolute',
+                      left: hoveredNote.x * zoom,
+                      top: hoveredNote.y * zoom + 8,
+                      zIndex: 70
+                    }}
+                    className="px-3 py-2 bg-gray-900 border border-white/10 text-white text-[10px] font-bold rounded-lg shadow-xl pointer-events-none whitespace-nowrap"
+                  >
+                    {hoveredNote.text}
+                    {/* Tooltip arrow pointing UP */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-gray-900" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-gray-300">
@@ -1094,9 +1249,9 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ 
-                opacity: (isIdle || fingerCount >= 3) ? 0 : 1, 
-                y: (isIdle || fingerCount >= 3) ? 20 : 0,
-                pointerEvents: (isIdle || fingerCount >= 3) ? 'none' : 'auto'
+                opacity: (isIdle || fingerCount >= 3 || !!activeAnnotation) ? 0 : 1, 
+                y: (isIdle || fingerCount >= 3 || !!activeAnnotation) ? 20 : 0,
+                pointerEvents: (isIdle || fingerCount >= 3 || !!activeAnnotation) ? 'none' : 'auto'
               }}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 lg:left-[calc(50%+160px)] z-40 transition-all duration-300"
             >
