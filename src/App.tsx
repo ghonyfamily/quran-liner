@@ -99,6 +99,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   const [fingerCount, setFingerCount] = useState(0);
   const [activeAnnotation, setActiveAnnotation] = useState<{ strokeId: string, text: string, x: number, y: number } | null>(null);
   const [hoveredNote, setHoveredNote] = useState<{ text: string, x: number, y: number } | null>(null);
+  const [preAnnotationView, setPreAnnotationView] = useState<{ zoom: number, offset: { x: number, y: number } } | null>(null);
 
   // Multi-user state
   const [profiles, setProfiles] = useState<{ id: string, name: string }[]>(() => {
@@ -555,6 +556,9 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
             ? ly + hlConfig.offsetY + hlConfig.height 
             : ly + 1;
           
+          if (window.innerWidth < 1024) {
+            setPreAnnotationView({ zoom, offset });
+          }
           setActiveAnnotation({ 
             strokeId, 
             text: '',
@@ -675,6 +679,24 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const handleCloseAnnotation = useCallback((save: boolean = true) => {
+    if (!activeAnnotation) return;
+    
+    if (save) {
+      const newStrokes = strokes.map(s => s.id === activeAnnotation.strokeId ? { ...s, note: activeAnnotation.text } : s);
+      setStrokes(newStrokes);
+      saveStrokes(newStrokes);
+    }
+    
+    setActiveAnnotation(null);
+    
+    if (preAnnotationView) {
+      setZoom(preAnnotationView.zoom);
+      setOffset(preAnnotationView.offset);
+      setPreAnnotationView(null);
+    }
+  }, [activeAnnotation, strokes, saveStrokes, preAnnotationView]);
 
   const currentSurah = [...SURAHS].reverse().find(s => s.page <= pageNumber)?.name || "Al-Fatihah";
 
@@ -1074,6 +1096,9 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                           const coords = getNaturalCoords(e.clientX, e.clientY);
                           const lx = coords ? coords.x : x + w/2;
                           const ly = line.y + hlConfig.offsetY + hlConfig.height;
+                          if (window.innerWidth < 1024) {
+                            setPreAnnotationView({ zoom, offset });
+                          }
                           setActiveAnnotation({ 
                             strokeId: stroke.id, 
                             text: stroke.note || '',
@@ -1106,6 +1131,9 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                           const coords = getNaturalCoords(e.clientX, e.clientY);
                           const lx = coords ? coords.x : (stroke.startX + stroke.endX)/2;
                           const ly = line.y + hlConfig.offsetY + hlConfig.height;
+                          if (window.innerWidth < 1024) {
+                            setPreAnnotationView({ zoom, offset });
+                          }
                           setActiveAnnotation({ 
                             strokeId: stroke.id, 
                             text: stroke.note || '',
@@ -1173,40 +1201,27 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                       type="text"
                       placeholder="Komentar..."
                       value={activeAnnotation.text}
-                      onBlur={() => {
-                        const newStrokes = strokes.map(s => s.id === activeAnnotation.strokeId ? { ...s, note: activeAnnotation.text } : s);
-                        setStrokes(newStrokes);
-                        saveStrokes(newStrokes);
-                        setActiveAnnotation(null);
-                      }}
+                      onBlur={() => handleCloseAnnotation(true)}
                       onChange={(e) => setActiveAnnotation(prev => prev ? { ...prev, text: e.target.value } : null)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          const newStrokes = strokes.map(s => s.id === activeAnnotation.strokeId ? { ...s, note: activeAnnotation.text } : s);
-                          setStrokes(newStrokes);
-                          saveStrokes(newStrokes);
-                          setActiveAnnotation(null);
+                          handleCloseAnnotation(true);
                         }
-                        if (e.key === 'Escape') setActiveAnnotation(null);
+                        if (e.key === 'Escape') handleCloseAnnotation(false);
                       }}
                       className="flex-1 bg-orange-50/40 border border-transparent focus:border-orange-200 rounded-xl px-3.5 py-1.5 text-sm lg:text-[11px] outline-none focus:ring-4 focus:ring-orange-500/5 placeholder:text-gray-400"
                     />
                     <div className="flex gap-1">
                       <button 
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => setActiveAnnotation(null)}
+                        onClick={() => handleCloseAnnotation(false)}
                         className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
                       >
                         <X className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
                       </button>
                       <button 
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          const newStrokes = strokes.map(s => s.id === activeAnnotation.strokeId ? { ...s, note: activeAnnotation.text } : s);
-                          setStrokes(newStrokes);
-                          saveStrokes(newStrokes);
-                          setActiveAnnotation(null);
-                        }}
+                        onClick={() => handleCloseAnnotation(true)}
                         className="p-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-lg shadow-orange-500/20 transition-all active:scale-95"
                       >
                         <ChevronRight className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
