@@ -601,7 +601,10 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
     handleEnd(touch?.clientX, touch?.clientY);
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => handleStart(e.clientX, e.clientY);
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    handleStart(e.clientX, e.clientY);
+  };
   const handleMouseMove = (e: React.MouseEvent) => handleMove(e.clientX, e.clientY);
 
   const handleImport = () => {
@@ -982,11 +985,12 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
 
         <main 
           className="flex-1 bg-[#f0f2f5] relative overflow-hidden p-4 lg:p-4 custom-scrollbar flex justify-center items-start shadow-inner touch-none"
-          onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
-          onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
           onMouseUp={(e) => handleEnd(e.clientX, e.clientY)}
           onMouseLeave={() => handleEnd()}
           onWheel={handleWheel}
+          onDragStart={(e) => e.preventDefault()}
         >
           {image ? (
             <div 
@@ -1003,6 +1007,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onDragStart={(e) => e.preventDefault()}
             >
               <svg 
                 className="absolute inset-0 pointer-events-none"
