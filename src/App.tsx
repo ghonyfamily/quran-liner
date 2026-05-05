@@ -405,8 +405,8 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   };
 
   const getNaturalCoords = (clientX: number, clientY: number) => {
-    if (!imageRef.current) return null;
-    const rect = imageRef.current.getBoundingClientRect();
+    if (!containerRef.current) return null;
+    const rect = containerRef.current.getBoundingClientRect();
     const x = (clientX - rect.left) * (NATURAL_WIDTH / rect.width);
     const y = (clientY - rect.top) * (NATURAL_HEIGHT / rect.height);
     return { x, y };
@@ -670,9 +670,10 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200">
                 <button 
-                  onClick={() => setPageNumber(prev => Math.max(1, prev - 1))}
+                  onClick={() => setPageNumber(prev => Math.min(604, prev + 1))}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                  disabled={pageNumber <= 1}
+                  disabled={pageNumber >= 604}
+                  title="Halaman Selanjutnya"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -718,9 +719,10 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                 )}
 
                 <button 
-                  onClick={() => setPageNumber(prev => Math.min(604, prev + 1))}
+                  onClick={() => setPageNumber(prev => Math.max(1, prev - 1))}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                  disabled={pageNumber >= 604}
+                  disabled={pageNumber <= 1}
+                  title="Halaman Sebelumnya"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -994,21 +996,12 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                 minWidth: NATURAL_WIDTH * zoom,
                 transform: `translate(${offset.x}px, ${offset.y}px)`,
               }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             >
-              <img
-                ref={imageRef}
-                src={image}
-                alt="Quran Page"
-                draggable={false}
-                referrerPolicy="no-referrer"
-                className="w-full h-full block select-none touch-none"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-              />
-              
               <svg 
                 className="absolute inset-0 pointer-events-none"
                 viewBox={`0 0 ${NATURAL_WIDTH} ${NATURAL_HEIGHT}`}
@@ -1038,7 +1031,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                         width={w} 
                         height={hlConfig.height} 
                         fill={color} 
-                        fillOpacity="0.2" 
+                        fillOpacity="0.4" 
                       />
                     );
                   }
@@ -1051,12 +1044,22 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                       x2={stroke.endX} 
                       y2={line.y + 1} 
                       stroke={color} 
-                      strokeWidth="3" 
+                      strokeWidth="5" 
                       strokeLinecap="round" 
                     />
                   );
                 })}
               </svg>
+
+              <img
+                ref={imageRef}
+                src={image}
+                alt="Quran Page"
+                draggable={false}
+                referrerPolicy="no-referrer"
+                className="w-full h-full block select-none touch-none pointer-events-none"
+                style={{ mixBlendMode: 'multiply' }}
+              />
 
               {isMapperMode && (
                 <div className="absolute top-4 right-4 flex gap-2">
