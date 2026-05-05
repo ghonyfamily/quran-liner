@@ -94,6 +94,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > window.innerHeight && window.innerWidth >= 768);
   const [showMarkedPagesModal, setShowMarkedPagesModal] = useState(false);
   const [markedPages, setMarkedPages] = useState<number[]>([]);
+  const [fingerCount, setFingerCount] = useState(0);
 
   // Multi-user state
   const [profiles, setProfiles] = useState<{ id: string, name: string }[]>(() => {
@@ -543,6 +544,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
 
   // Touch Handlers for Pinch Zoom & Panning
   const handleTouchStart = (e: React.TouchEvent) => {
+    setFingerCount(e.touches.length);
     if (e.touches.length === 2) {
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -558,6 +560,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    setFingerCount(e.touches.length);
     if (e.touches.length === 2 && lastPinchDist.current !== null && lastPinchCenter.current !== null) {
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -591,6 +594,7 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    setFingerCount(e.touches.length);
     lastPinchDist.current = null;
     lastPinchCenter.current = null;
     const touch = e.changedTouches[0];
@@ -670,10 +674,9 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200">
                 <button 
-                  onClick={() => setPageNumber(prev => Math.min(604, prev + 1))}
+                  onClick={() => setPageNumber(prev => Math.max(1, prev - 1))}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                  disabled={pageNumber >= 604}
-                  title="Halaman Selanjutnya"
+                  disabled={pageNumber <= 1}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -719,10 +722,9 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                 )}
 
                 <button 
-                  onClick={() => setPageNumber(prev => Math.max(1, prev - 1))}
+                  onClick={() => setPageNumber(prev => Math.min(604, prev + 1))}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                  disabled={pageNumber <= 1}
-                  title="Halaman Sebelumnya"
+                  disabled={pageNumber >= 604}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1087,9 +1089,9 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ 
-                opacity: isIdle ? 0 : 1, 
-                y: isIdle ? 20 : 0,
-                pointerEvents: isIdle ? 'none' : 'auto'
+                opacity: (isIdle || fingerCount >= 3) ? 0 : 1, 
+                y: (isIdle || fingerCount >= 3) ? 20 : 0,
+                pointerEvents: (isIdle || fingerCount >= 3) ? 'none' : 'auto'
               }}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 lg:left-[calc(50%+160px)] z-40 transition-all duration-300"
             >
