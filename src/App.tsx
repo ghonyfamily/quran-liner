@@ -100,6 +100,18 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
   const [activeAnnotation, setActiveAnnotation] = useState<{ strokeId: string, text: string, x: number, y: number } | null>(null);
   const [hoveredNote, setHoveredNote] = useState<{ text: string, x: number, y: number } | null>(null);
   const [preAnnotationView, setPreAnnotationView] = useState<{ zoom: number, offset: { x: number, y: number } } | null>(null);
+  const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(() => {
+    const saved = localStorage.getItem('is_annotation_enabled');
+    return saved === null ? true : saved === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('is_annotation_enabled', isAnnotationEnabled.toString());
+    if (!isAnnotationEnabled) {
+      setActiveAnnotation(null);
+      setHoveredNote(null);
+    }
+  }, [isAnnotationEnabled]);
 
   // Multi-user state
   const [profiles, setProfiles] = useState<{ id: string, name: string }[]>(() => {
@@ -556,15 +568,17 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
             ? ly + hlConfig.offsetY + hlConfig.height 
             : ly + 1;
           
-          if (window.innerWidth < 1024) {
+          if (isAnnotationEnabled && window.innerWidth < 1024) {
             setPreAnnotationView({ zoom, offset });
           }
-          setActiveAnnotation({ 
-            strokeId, 
-            text: '',
-            x: lx,
-            y: finalY
-          });
+          if (isAnnotationEnabled) {
+            setActiveAnnotation({ 
+              strokeId, 
+              text: '',
+              x: lx,
+              y: finalY
+            });
+          }
         }
       } else if (interactionMode.current === 'erasing' || (interactionMode.current === 'pending' && tool === 'delete')) {
         saveStrokes(strokes);
@@ -933,6 +947,26 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                     <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Pengaturan</h3>
                     
                     <button 
+                      onClick={() => setIsAnnotationEnabled(!isAnnotationEnabled)}
+                      className="w-full flex items-center justify-between p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all group shadow-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isAnnotationEnabled ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          <Type className="w-4 h-4" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black text-gray-900 leading-none">Fitur Anotasi</p>
+                          <p className="text-[9px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">
+                            {isAnnotationEnabled ? 'Aktif' : 'Nonaktif'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`w-8 h-4 rounded-full relative transition-colors ${isAnnotationEnabled ? 'bg-orange-600' : 'bg-gray-200'}`}>
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isAnnotationEnabled ? 'right-0.5' : 'left-0.5'}`} />
+                      </div>
+                    </button>
+
+                    <button 
                       onClick={() => setShowProfiles(true)}
                       className="w-full flex items-center gap-3 p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all group shadow-sm"
                     >
@@ -1089,9 +1123,10 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                         fill={color} 
                         fillOpacity="0.4"
                         className="pointer-events-auto cursor-pointer"
-                        onMouseEnter={() => stroke.note && setHoveredNote({ text: stroke.note, x: x + w/2, y: line.y + hlConfig.offsetY + hlConfig.height })}
+                        onMouseEnter={() => isAnnotationEnabled && stroke.note && setHoveredNote({ text: stroke.note, x: x + w/2, y: line.y + hlConfig.offsetY + hlConfig.height })}
                         onMouseLeave={() => setHoveredNote(null)}
                         onDoubleClick={(e) => {
+                          if (!isAnnotationEnabled) return;
                           e.stopPropagation();
                           const coords = getNaturalCoords(e.clientX, e.clientY);
                           const lx = coords ? coords.x : x + w/2;
@@ -1124,9 +1159,10 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                         height={hlConfig.height}
                         fill="transparent"
                         className="pointer-events-auto cursor-pointer"
-                        onMouseEnter={() => stroke.note && setHoveredNote({ text: stroke.note, x: (stroke.startX + stroke.endX)/2, y: line.y + hlConfig.offsetY + hlConfig.height })}
+                        onMouseEnter={() => isAnnotationEnabled && stroke.note && setHoveredNote({ text: stroke.note, x: (stroke.startX + stroke.endX)/2, y: line.y + hlConfig.offsetY + hlConfig.height })}
                         onMouseLeave={() => setHoveredNote(null)}
                         onDoubleClick={(e) => {
+                          if (!isAnnotationEnabled) return;
                           e.stopPropagation();
                           const coords = getNaturalCoords(e.clientX, e.clientY);
                           const lx = coords ? coords.x : (stroke.startX + stroke.endX)/2;
@@ -1292,7 +1328,16 @@ function QuranWorkspace({ isMapperMode = false }: { isMapperMode?: boolean }) {
                   </button>
 
                   <button
-                    onClick={() => setTool('delete')}
+                    onClick={() => {
+                      if (tool === 'delete') {
+                        if (strokes.length > 0) {
+                          setStrokes([]);
+                          saveStrokes([]);
+                        }
+                      } else {
+                        setTool('delete');
+                      }
+                    }}
                     className={`px-4 py-1.5 rounded-md transition-all flex items-center gap-2 ${tool === 'delete' ? 'bg-white shadow-sm ring-1 ring-black/5 text-red-600' : 'text-gray-400 hover:text-gray-600'}`}
                     title="Hapus Garis"
                   >
